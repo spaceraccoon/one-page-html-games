@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<head>
+    <title>Snake</title>
+    <style>
+        #game {
+            text-align: center;
+        }
+        #board {
+            border-style: double;
+            margin: 0 auto;
+        }
+        .cell {
+            height: 10px;
+            width: 10px;
+        }
+        .food {
+            height: 10px;
+            width: 10px;
+            border-radius: 5px;
+            background: #000000;
+        }
+        .snake {
+            background: #000000;
+        }
+    </style>
+</head>
+<body>
+    <div id="game">
+        <h1>Snake</h1>
+        <h3 id="points">0</h3>
+        <button onclick="newGame()">New Game</button>
+        <select id="difficulty">
+            <option value="easy">Easy</option>
+            <option value="medium">Medium</option>
+            <option value="hard">Hard</option>
+        </select>
+        <hr />
+        <table id="board"></table>
+    </div>
+    <script>
+        var directionsEnum = Object.freeze({up: 0, down: 1, left: 2, right:3});
+
+        function initSnakeBody() {
+            var body = [];
+            var head = Math.floor(config.numRows / 2) * (config.numRows + 1);
+            for (var i = 0; i < state.snake.size; i++) {
+                body.push(head - i);
+            }
+            return body;
+        }
+
+        function generateFood() {
+            var freeCells = Array.apply(null, {length: config.boardSize}).map(Number.call, Number);
+            freeCells = freeCells.filter(function(cell) {
+                return state.snake.body.indexOf(cell) === -1;
+            });
+            var foodPosition = freeCells[Math.floor(Math.random() * freeCells.length)];
+            return foodPosition;
+        }
+
+        function renderGame() {
+            document.getElementById('points').textContent = state.game.points;
+            var board = document.getElementById('board');
+            var row;
+            var cell;
+            var cellPosition;
+            while (board.firstChild) {
+                board.removeChild(board.firstChild);
+            }
+            for (var i = 0; i < config.numRows; i++) {
+                row = board.insertRow(i);
+                for (var j = 0; j < config.numRows; j++) {
+                    cellPosition = i * config.numRows + j;
+                    cell = row.insertCell(j);
+                    cell.classList.add('cell');
+                    cell.id = 'cell-' + cellPosition;
+                    cell.dataset.cellPosition = cellPosition;
+                }
+            }
+            for (var i = 0; i < state.snake.size; i++) {
+                document.getElementById('cell-' + state.snake.body[i]).classList.add('snake');
+            }
+            var food = document.createElement('div');
+            food.classList.add('food');
+            console.log(state.food)
+            document.getElementById('cell-' + state.food).appendChild(food);
+        }
+
+        function updateState() {
+            var newHead;
+            switch(state.snake.direction) {
+                case directionsEnum.up:
+                    newHead = state.snake.body[0] - config.numRows;
+                    break;
+                case directionsEnum.down:
+                    newHead = state.snake.body[0] + config.numRows;
+                    break;
+                case directionsEnum.left:
+                    newHead = state.snake.body[0] - 1;
+                    break;
+                case directionsEnum.right:
+                    newHead = state.snake.body[0] + 1;
+                    break;
+                default:
+                    newHead = state.snake.body[0];
+            }
+            if (state.snake.size === config.boardSize) {
+                alert('You won!');
+                clearInterval(state.game.interval);
+            } else if (
+                newHead < 0 ||
+                newHead >= config.boardSize ||
+                state.snake.body.slice(1).indexOf(newHead) !== -1 ||
+                ((state.snake.direction === directionsEnum.right || state.snake.direction === directionsEnum.left) && Math.floor(newHead / config.numRows) !== Math.floor(state.snake.body[0] / config.numRows))
+            ) {
+                alert('You lost!');
+                clearInterval(state.game.interval);
+            } else {
+                if (newHead === state.food) {
+                    state.snake.body.unshift(newHead);
+                    state.snake.size++;
+                    state.game.points++;
+                    state.food = generateFood();
+                } else {
+                    state.snake.body = state.snake.body.slice(0, -1);
+                    state.snake.body.unshift(newHead);
+                }
+            }
+            renderGame();
+        }
+
+        function newGame() {
+            state.game.points = 0;
+            state.snake.direction = config.initDirection;
+            state.snake.size = config.initSnakeSize;
+            state.snake.body = initSnakeBody();
+            state.food = generateFood();
+            console.log(state.food)
+            renderGame();
+            clearInterval(state.game.interval);
+            switch(document.getElementById('difficulty').value) {
+                case 'easy':
+                    state.game.interval = setInterval(updateState, config.easySpeed);
+                    break;
+                case 'medium':
+                    state.game.interval = setInterval(updateState, config.mediumSpeed);
+                    break;
+                case 'hard':
+                    state.game.interval = setInterval(updateState, config.hardSpeed);
+                    break;
+                default:
+                    state.game.interval = setInterval(updateState, config.easySpeed);
+            }
+        }
+
+        var config = {
+            numRows: 30,
+            boardSize: 900,
+            initSnakeSize: 6,
+            initDirection: directionsEnum.right,
+            easySpeed: 200,
+            mediumSpeed: 100,
+            hardSpeed: 50
+        }
+
+        var state = {
+            game: {
+                isPlaying: true,
+                interval: undefined,
+                points: 0,
+                speed: undefined
+            },
+            food: undefined,
+            snake: {
+                direction: undefined,
+                body: [],
+                size: undefined
+            }
+        }
+
+        document.onkeydown = function(e) {
+            switch(e.keyCode) {
+                case 37:
+                    if (state.snake.body[0] - 1 !== state.snake.body[1]) {
+                        state.snake.direction = directionsEnum.left;
+                    }
+                    break;
+                case 38:
+                    if (state.snake.body[0] - config.numRows !== state.snake.body[1]) {
+                        state.snake.direction = directionsEnum.up;
+                    }
+                    break;
+                case 39:
+                    if (state.snake.body[0] + 1 !== state.snake.body[1]) {
+                        state.snake.direction = directionsEnum.right;
+                    }
+                    break;
+                case 40:
+                    if (state.snake.body[0] + config.numRows !== state.snake.body[1]) {
+                        state.snake.direction = directionsEnum.down;
+                    }
+                    break;
+                default:
+                    // do nothing
+            }
+        }
+
+        newGame();
+    </script>
+</body>

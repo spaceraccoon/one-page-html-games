@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<head>
+    <title>Minesweeper</title>
+    <style>
+        #game {
+            text-align: center;
+        }
+        #board {
+            margin: 0 auto;
+        }
+        .cell {
+            height: 30px;
+            width: 30px;
+            text-align: center;
+        }
+        .opened {
+            background: #d3d3d3;
+        }
+    </style>
+</head>
+<body>
+    <div id="game">
+        <h1>Minesweeper</h1>
+        <h3 id="timer">00:00:00</h3>
+        <button onclick="newGame()">New Game</button>
+        <select id="difficulty">
+            <option value="easy">Easy</option>
+            <option value="medium">Medium</option>
+            <option value="hard">Hard</option>
+        </select>
+        <hr />
+        <table id="board" border="1px"></table>
+    </div>
+    <script>
+        /**
+         * Initializes and returns empty cells in an array of length
+         * state.board.size.
+         */
+        function initCells() {
+            var cells = [];
+            var freeCells = Array.apply(null, {length: state.board.size}).map(Number.call, Number);
+            var mineIndex;
+            var minePosition;
+            var neighborPosition;
+            for (var i = 0; i < state.board.size; i++) {
+                cells.push({
+                    isMine: false,
+                    isOpened: false,
+                    isFlagged: false,
+                    numNeighborMines: 0
+                });
+            }
+            return cells;
+        }
+
+        /**
+         * Generate mines for the map based on the first click; mines cannot be
+         * in the same position as the first clicked cell. Also updates 
+         * numNeighborMines for valid neighbors of mines.
+         */
+        function generateMines(initPosition) {
+            for (var i = 0; i < state.board.numMines; i++) {
+                do {
+                    minePosition = Math.floor(Math.random() * state.board.size);
+                } while (state.board.cells[minePosition].isMine || minePosition === initPosition);
+                state.board.cells[minePosition].isMine = true;
+                for (var j = -1; j < 2; j++) {
+                    for (k = -1; k < 2; k++) {
+                        neighborPosition = minePosition + j * state.board.numRows + k;
+                        // ensure that neighborPosition is a valid neighbor
+                        if (
+                            neighborPosition >= 0 &&
+                            neighborPosition < state.board.size &&
+                            Math.floor(neighborPosition / state.board.numRows) === Math.floor(minePosition / state.board.numRows + j)
+                        ) {
+                            state.board.cells[neighborPosition].numNeighborMines++;
+                        }
+                    }
+                }
+            }
+        }
+
+        /**
+         * Checks the cell that has been clicked and updates the game state
+         * accordingly.
+         */
+        function openCell(cellPosition) {
+            // generate mines if first click
+            if (state.board.numRemainingCells === state.board.size - state.board.numMines) {
+                generateMines(cellPosition);
+            }
+            // only opens valid cells
+            if (
+                !state.board.cells[cellPosition].isOpened &&
+                !state.board.cells[cellPosition].isFlagged &&
+                state.game.isPlaying
+            ) {
+                // checks for mine and ends game if true
+                if (state.board.cells[cellPosition].isMine) {
+                    clearInterval(state.game.timer);
+                    alert('You lost!');
+                    state.game.isPlaying = false;
+                } else {
+                    state.board.cells[cellPosition].isOpened = true;
+                    // checks if all safe cells have been opened and ends game if true
+                    if (--state.board.numRemainingCells === 0) {
+                        clearInterval(state.game.timer);
+                        alert('You won!');
+                        state.game.isPlaying = false;
+                    }
+                }
+                // for cells with zero neighboring cells, open neighboring cells
+                if (state.board.cells[cellPosition].numNeighborMines === 0) {
+                    var neighborPosition;
+                    var neighborPositions = [];
+                    for (var i = -1; i < 2; i++) {
+                        for (var j = -1; j < 2; j++) {
+                            neighborPosition = cellPosition + i * state.board.numRows + j;
+                            if (
+                                neighborPosition >= 0 &&
+                                neighborPosition < state.board.size &&
+                                Math.floor(neighborPosition / state.board.numRows) === Math.floor(cellPosition / state.board.numRows + i)
+                            ) {
+                                neighborPositions.push(neighborPosition);
+                            }
+                        }
+                    }
+                    var numNeighbors = neighborPositions.length;
+                    // recursively open valid neighboring cells
+                    for (var i = 0; i < numNeighbors; i++) {
+                        openCell(neighborPositions[i]);
+                    }
+                }
+            }
+        }
+
+        /**
+         * Flags cells that have been right-clicked.
+         */
+        function toggleFlag(cellPosition) {
+            state.board.cells[cellPosition].isFlagged = !state.board.cells[cellPosition].isFlagged;
+        }
+
+        /**
+         * Renders HTML elements for the game based on current state.
+         */
+        function renderGame() {
+            var board = document.getElementById('board');
+            var row;
+            var cell;
+            var cellPosition;
+            // remove current elements
+            while (board.firstChild) {
+                board.removeChild(board.firstChild);
+            }
+            for (var i = 0; i < state.board.numRows; i++) {
+                row = board.insertRow(i);
+                for (var j = 0; j < state.board.numRows; j++) {
+                    cellPosition = i * state.board.numRows + j;
+                    cell = row.insertCell(j);
+                    cell.classList.add('cell');
+                    cell.dataset.cellPosition = cellPosition;
+                    if (state.game.isPlaying) {
+                        cell.onclick = function(e) {
+                            openCell(parseInt(e.target.dataset.cellPosition));
+                            renderGame();
+                        }
+                        cell.oncontextmenu = function(e) {
+                            toggleFlag(parseInt(e.target.dataset.cellPosition));
+                            renderGame();
+                            return false;
+                        }
+                        if (state.board.cells[cellPosition].isOpened) {
+                            cell.classList.add('opened');
+                            if (state.board.cells[cellPosition].numNeighborMines !== 0) {
+                                cell.textContent = state.board.cells[cellPosition].numNeighborMines;
+                            }
+                        } else if (state.board.cells[cellPosition].isFlagged) {
+                            cell.textContent = '\u2691';
+                        }
+                    // if game has ended, reveal entire map
+                    } else {
+                        if (state.board.cells[i * state.board.numRows +j].isMine) {
+                            cell.textContent = '\u2620';
+                        } else {
+                            if (state.board.cells[cellPosition].isOpened) {
+                                cell.classList.add('opened');
+                            }
+                            if (state.board.cells[cellPosition].numNeighborMines !== 0) {
+                                cell.textContent = state.board.cells[i * state.board.numRows + j].numNeighborMines;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        /**
+         * Initialize new game state.
+         */
+        function newGame() {
+            switch(document.getElementById('difficulty').value) {
+                case 'easy':
+                    state.board.size = config.easySize;
+                    break;
+                case 'medium':
+                    state.board.size = config.mediumSize;
+                    break;
+                case 'hard':
+                    state.board.size = config.hardSize;
+                    break;
+                default:
+                    // do nothing
+            }
+            state.board.numMines = Math.floor(state.board.size * config.pctMines);
+            state.board.numRemainingCells = state.board.size - state.board.numMines;
+            state.board.numRows = Math.sqrt(state.board.size);
+            state.game.isPlaying = true;
+            state.board.cells = initCells();
+            resetTimer();
+            renderGame();
+        }
+
+        /**
+         * Pads a string to desired targetLength with padStr.
+         */
+        function pad(str, targetLength, padStr) {
+            return Array(targetLength - str.length + 1).join(padStr) + str;
+        }
+
+        /**
+         * Format time in seconds to hh:mm:ss.
+         */
+        function formatTime(time) {
+            var formattedTime;
+            h = pad(Math.floor(time / 3600).toString(), 2, '0');
+            time = time % 3600;
+            m = pad(Math.floor(time / 60).toString(), 2, '0');
+            time = time % 60;
+            s = pad(time.toString(), 2, '0');
+            return h + ':' + m + ':' + s;
+        }
+
+        /**
+         * Increment game time and render new time.
+         */
+        function updateTimer() {
+            state.game.time++;
+            var timerText = document.getElementById('timer');
+            timerText.textContent = formatTime(state.game.time);
+        }
+
+        /**
+         * Sets game time to 0 and renders new time.
+         */
+        function resetTimer() {
+            state.game.time = 0;
+            clearInterval(state.game.timer);
+            state.game.timer = setInterval(updateTimer, 1000);
+            var timerText = document.getElementById('timer');
+            timerText.textContent = formatTime(state.game.time);
+        }
+
+        var config = {
+            pctMines: 0.25,
+            easySize: 100,
+            mediumSize: 225,
+            hardSize: 400
+        }
+
+        var state = {
+            board: {
+                cells: [],
+                numMines: undefined,
+                numRemainingCells: undefined,
+                numRows: undefined,
+                size: undefined,
+            },
+            game: {
+                isPlaying: true,
+                timer: undefined,
+                time: 0
+            }
+        }
+
+        newGame();
+    </script>
+</body>
