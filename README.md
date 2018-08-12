@@ -1,2 +1,2 @@
-# one-page-html-games
-Classic games written in single HTML pages, using only vanilla CSS and JS.
+# One Page HTML Games
+A collection of old-school arcade games built as single HTML pages with a dash of vanilla CSS and JS. Head to the [Github Page](https://spaceraccoon.github.io/one-page-html-games/index.html) to play!
