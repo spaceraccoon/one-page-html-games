@@ -3,13 +3,7 @@
     <title>Minesweeper</title>
     <meta property="og:description" content="Minesweeper built as a single HTML page with a dash of vanilla CSS and JS." />
     <style>
-        #header {
-            text-align: center;
-        }
-        #navigation {
-            text-align: center;
-        }
-        #game {
+        body {
             text-align: center;
         }
         #timer-container {
@@ -31,26 +25,17 @@
         }
         #instructions ul {
             display: inline-block;
-            text-align:left;
+            text-align: left;
         }
     </style>
 </head>
 <body>
-    <pre id="header">
- _____                                                          _        ___                    _      
-/  ___|                                                        ( )      / _ \                  | |     
-\ `--. _ __   __ _  ___ ___ _ __ __ _  ___ ___ ___   ___  _ __ |/ ___  / /_\ \_ __ __ _  ___ __| | ___ 
- `--. \ '_ \ / _` |/ __/ _ \ '__/ _` |/ __/ __/ _ \ / _ \| '_ \  / __| |  _  | '__/ _` |/ __/ _` |/ _ \
-/\__/ / |_) | (_| | (_|  __/ | | (_| | (_| (_| (_) | (_) | | | | \__ \ | | | | | | (_| | (_| (_| |  __/
-\____/| .__/ \__,_|\___\___|_|  \__,_|\___\___\___/ \___/|_| |_| |___/ \_| |_/_|  \__,_|\___\__,_|\___|
-      | |                                                                                              
-    |_|                                                                                            
-    </pre>
     <div id="navigation">
         <nav>
             <a href="index.html">Home</a>
             <a href="minesweeper.html">Minesweeper</a>
             <a href="snake.html">Snake</a>
+            <a href="tetris.html">Tetris</a>
         </nav>
     </div>
     <div id="game">
@@ -73,6 +58,9 @@
             </ul>
         </div>
     </div>
+    <footer>
+        <p>Built by: <a href="https://github.com/spaceraccoon/one-page-html-games">Spaceraccoon</a></p>
+    </footer>
     <script>
         /**
          * Initializes and returns empty cells in an array of length
@@ -139,16 +127,12 @@
             ) {
                 // checks for mine and ends game if true
                 if (state.board.cells[cellPosition].isMine) {
-                    clearInterval(state.game.timer);
-                    alert('You lost!');
-                    state.game.isPlaying = false;
+                    endGame(false);
                 } else {
                     state.board.cells[cellPosition].isOpened = true;
                     // checks if all safe cells have been opened and ends game if true
                     if (--state.board.numRemainingCells === 0) {
-                        clearInterval(state.game.timer);
-                        alert('You won!');
-                        state.game.isPlaying = false;
+                        endGame(true);
                     }
                 }
                 // for cells with zero neighboring cells, open neighboring cells
@@ -235,6 +219,20 @@
                     }
                 }
             }
+        }
+
+        /**
+         * End game state.
+         */
+        function endGame(isWon) {
+            if (isWon) {
+                alert('You won!');
+            } else {
+                alert('You lost!');
+            }
+            clearInterval(state.game.timer);
+            state.game.timer = undefined;
+            state.game.isPlaying = false;
         }
 
         /**
