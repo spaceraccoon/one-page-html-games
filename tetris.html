@@ -2,6 +2,7 @@
 <head>
     <title>Tetris</title>
     <meta property="og:description" content="Tetris built as a single HTML page with a dash of vanilla CSS and JS." />
+    <script src="hammer.min.js"></script>
     <style>
         body {
             text-align: center;
@@ -84,9 +85,9 @@
         <div id="instructions">
             <h3>Instructions</h3>
             <ul>
-                <li>Up Arrow: Rotate block</li>
-                <li>Down Arrow: Accelerate block</li>
-                <li>Left and Right Arrows: Move block</li>
+                <li>Up Arrow/Tap: Rotate block</li>
+                <li>Down Arrow/Swipe: Accelerate block</li>
+                <li>Left and Right Arrows/Swipe: Move block</li>
             </ul>
         </div>
     </div>
@@ -104,6 +105,12 @@
             Z: 6
         });
 
+        var directionsEnum = Object.freeze({left: 0, up: 1, right: 2, down: 3});
+
+        /**
+         * Randomly generate new tetrimino in appropriate row, depending on
+         * whether top rows are occupied.
+         */
         function generateTetrimino() {
             var tetrimino = {
                 type: Math.floor(Math.random() * Object.keys(tetriminosEnum).length),
@@ -185,9 +192,11 @@
                 default:
                     break;
             }
+            // if second top row is occupied, generate tetrimino higher
             if (upperRows && bottomRow.some(function(position) {return state.cells[position.y][position.x].isOccupied})) {
                 bottomRow = bottomRow.map(function(position) {return {x: position.x, y: position.y - 1}});
                 upperRows = upperRows.map(function(position) {return {x: position.x, y: position.y - 1}});
+                // if top two rows are occupied, game over
                 if (bottomRow.some(function(position) {return state.cells[position.y][position.x].isOccupied})) {
                     endGame(false);
                     return undefined;
@@ -197,7 +206,9 @@
             return tetrimino;
         }
 
-        // From trevorelwell.me
+        /**
+         * Rotate teterimino clockwise; from trevorelwell.me
+         */
         function rotateTetrimino(tetrimino) {
             var newTetriminoBody = [];
             for (var i = 0; i < tetrimino.body.length; i++) {
@@ -218,6 +229,9 @@
             }
         }
 
+        /**
+         * Renders HTML elements for the game based on current state.
+         */
         function renderGame() {
             var board = document.getElementById('board');
             var row;
@@ -246,31 +260,27 @@
             }
         }
 
-        function getColumn(matrix, columnIndex) {
-            var column = [];
-            column = matrix.map(function(row) {return row[columnIndex]});
-            return column;
-        }
-
+        /**
+         * Update game state based on tetrimino postion.
+         */
         function updateState() {
             var newBody = state.tetrimino.body.map(function(position) {return {x: position.x, y: position.y + 1}});
             var candidateRows = [];
             var candidateCells = [];
-            // tetrimino cannot fall further
+            // if tetrimino cannot fall further, set tetrimino and generate new one
             if (newBody.some(
                 function(position) {
                     return position.x >= config.numCols || position.y >= config.numRows || state.cells[position.y][position.x].isOccupied;
                 }
             )) {
-                // some part of tetrimino is above line
+                // if some part of tetrimino is above line, game over
                 if (state.tetrimino.body.some(function(position) {return position.y < 0})) {
                     endGame(false);
                 } else {
-                    // else, set tetrimino body to occupied and remove rows if necessary
+                    // else, set tetrimino body to occupied status and remove rows if necessary
                     for (var i = 0; i < state.tetrimino.body.length; i++) {
                         state.cells[state.tetrimino.body[i].y][state.tetrimino.body[i].x].isOccupied = true;
                         state.cells[state.tetrimino.body[i].y][state.tetrimino.body[i].x].type = state.tetrimino.type;
-                        // check if rows where tetrimino rests are filled
                         if (candidateRows.indexOf(state.tetrimino.body[i].y) === -1) {
                             candidateRows.push(state.tetrimino.body[i].y);
                         }
@@ -279,6 +289,7 @@
                     for (var j = 0; j < candidateRows.length; j++) {
                         if (state.cells[candidateRows[j]].every(function(cell) {return cell.isOccupied})) {
                             document.getElementById('points').textContent = ++state.game.points;
+                            // remove fully occupied row and shift rest of rows
                             state.cells.splice(candidateRows[j], 1);
                             state.cells = Array.apply(null, {length: 1}).map(
                                 function() {return Array.apply(null, {length: config.numCols}).map(
@@ -290,12 +301,16 @@
                     state.tetrimino = generateTetrimino();
                 }
             } else {
+                // else, advance tetrimino
                 state.tetrimino.body = newBody;
                 state.tetrimino.pivot = {x: state.tetrimino.pivot.x, y: state.tetrimino.pivot.y + 1};
             }
             renderGame();
         }
 
+        /**
+         * Initialize new game state.
+         */
         function newGame() {
             state.game.points = 0;
             state.cells = Array.apply(null, {length: config.numRows}).map(
@@ -321,6 +336,9 @@
             }
         }
 
+        /**
+         * End game state.
+         */
         function endGame(isWon) {
             if (isWon) {
                 alert('You won!');
@@ -353,43 +371,93 @@
             }
         }
 
-        document.onkeydown = function(e) {
-            if (state.game.interval) {
-                switch(e.keyCode) {
-                    case 37:
-                        e.preventDefault();
-                        if (
-                            !state.tetrimino.body.some(function(position) {return position.x % config.numCols === 0 || state.cells[position.y][position.x - 1].isOccupied})
-                        ) {
-                            state.tetrimino.body = state.tetrimino.body.map(function(position) {return {x: position.x - 1, y: position.y}});
-                            state.tetrimino.pivot = {x: state.tetrimino.pivot.x - 1, y: state.tetrimino.pivot.y};
-                            renderGame();
-                        }
-                        break;
-                    case 38:
-                        e.preventDefault();
-                        state.tetrimino.body = rotateTetrimino(state.tetrimino);
+        /**
+         * Change game state according to user input.
+         */
+        function handleInput(input) {
+            switch(input) {
+                case directionsEnum.left:
+                    if (
+                        !state.tetrimino.body.some(function(position) {return position.x % config.numCols === 0 || state.cells[position.y][position.x - 1].isOccupied})
+                    ) {
+                        state.tetrimino.body = state.tetrimino.body.map(function(position) {return {x: position.x - 1, y: position.y}});
+                        state.tetrimino.pivot = {x: state.tetrimino.pivot.x - 1, y: state.tetrimino.pivot.y};
                         renderGame();
-                        break;
-                    case 39:
-                        e.preventDefault();
-                        if (
-                            !state.tetrimino.body.some(function(position) {return position.x % config.numCols === config.numCols - 1 || state.cells[position.y][position.x + 1].isOccupied})
-                        ) {
-                            state.tetrimino.body = state.tetrimino.body.map(function(position) {return {x: position.x + 1, y: position.y}});
-                            state.tetrimino.pivot = {x: state.tetrimino.pivot.x + 1, y: state.tetrimino.pivot.y};
-                            renderGame();
-                        }
-                        break;
-                    case 40:
-                        updateState();
-                        break;
-                    default:
-                        // do nothing
-                }
+                    }
+                    break;
+                case directionsEnum.up:
+                    state.tetrimino.body = rotateTetrimino(state.tetrimino);
+                    renderGame();
+                    break;
+                case directionsEnum.right:
+                    if (
+                        !state.tetrimino.body.some(function(position) {return position.x % config.numCols === config.numCols - 1 || state.cells[position.y][position.x + 1].isOccupied})
+                    ) {
+                        state.tetrimino.body = state.tetrimino.body.map(function(position) {return {x: position.x + 1, y: position.y}});
+                        state.tetrimino.pivot = {x: state.tetrimino.pivot.x + 1, y: state.tetrimino.pivot.y};
+                        renderGame();
+                    }
+                    break;
+                case directionsEnum.down:
+                    updateState();
+                    break;
+                default:
+                    // do nothing
             }
         }
 
+        /**
+         * Initialize game controls.
+         */
+        function initControls() {
+            // keyboard controls
+            document.onkeydown = function(e) {
+                if (state.game.interval) {
+                    switch(e.keyCode) {
+                        case 37:
+                            e.preventDefault();
+                            handleInput(directionsEnum.left);
+                            break;
+                        case 38:
+                            e.preventDefault();
+                            handleInput(directionsEnum.up);
+                            break;
+                        case 39:
+                            e.preventDefault();
+                            handleInput(directionsEnum.right);
+                            break;
+                        case 40:
+                            e.preventDefault();
+                            handleInput(directionsEnum.down);
+                            break;
+                        default:
+                            // do nothing
+                    }
+                }
+            }
+
+            // touch controls
+            var manager = new Hammer.Manager(document.getElementById('board'));
+            var Swipe = new Hammer.Swipe();
+            var Tap = new Hammer.Tap();
+            manager.add(Swipe);
+            manager.add(Tap);
+
+            manager.on('swipeleft', function(e) {
+                handleInput(directionsEnum.left);
+            });
+            manager.on('tap', function(e) {
+                handleInput(directionsEnum.up);
+            });
+            manager.on('swiperight', function(e) {
+                handleInput(directionsEnum.right);
+            });
+            manager.on('swipedown', function(e) {
+                handleInput(directionsEnum.down);
+            });
+        }
+
+        initControls();
         newGame();
     </script>
 </body>

@@ -2,6 +2,7 @@
 <head>
     <title>Snake</title>
     <meta property="og:description" content="Snake built as a single HTML page with a dash of vanilla CSS and JS." />
+    <script src="hammer.min.js"></script>
     <style>
         body {
             text-align: center;
@@ -59,7 +60,7 @@
         <div id="instructions">
             <h3>Instructions</h3>
             <ul>
-                <li>Arrow Keys: Change snake direction</li>
+                <li>Arrow Keys/Swipe: Change snake direction</li>
             </ul>
         </div>
     </div>
@@ -69,6 +70,10 @@
     <script>
         var directionsEnum = Object.freeze({up: 0, down: 1, left: 2, right:3});
 
+
+        /**
+         * Initializes snake body at center of board.
+         */
         function initSnakeBody() {
             var body = [];
             var head = Math.floor(config.numRows / 2) * (config.numRows + 1);
@@ -78,6 +83,9 @@
             return body;
         }
 
+        /**
+         * Randomly generate food in an empty cell.
+         */
         function generateFood() {
             var freeCells = Array.apply(null, {length: config.boardSize}).map(Number.call, Number);
             freeCells = freeCells.filter(function(cell) {
@@ -87,6 +95,9 @@
             return foodPosition;
         }
 
+        /**
+         * Renders HTML elements for the game based on current state.
+         */
         function renderGame() {
             document.getElementById('points').textContent = state.game.points;
             var board = document.getElementById('board');
@@ -106,15 +117,19 @@
                     cell.dataset.cellPosition = cellPosition;
                 }
             }
+            // render snake
             for (var i = 0; i < state.snake.size; i++) {
                 document.getElementById('cell-' + state.snake.body[i]).classList.add('snake');
             }
+            // render food
             var food = document.createElement('div');
             food.classList.add('food');
-            console.log(state.food)
             document.getElementById('cell-' + state.food).appendChild(food);
         }
 
+        /**
+         * Update game state based on snake direction.
+         */
         function updateState() {
             var newHead;
             switch(state.snake.direction) {
@@ -133,8 +148,10 @@
                 default:
                     newHead = state.snake.body[0];
             }
+            // check if snake has filled board
             if (state.snake.size === config.boardSize) {
                 endGame(true);
+            // check if snake has died
             } else if (
                 newHead < 0 ||
                 newHead >= config.boardSize ||
@@ -142,7 +159,9 @@
                 ((state.snake.direction === directionsEnum.right || state.snake.direction === directionsEnum.left) && Math.floor(newHead / config.numRows) !== Math.floor(state.snake.body[0] / config.numRows))
             ) {
                 endGame(false);
+            // advance snake body to new head
             } else {
+                // check if new head eats food
                 if (newHead === state.food) {
                     state.snake.body.unshift(newHead);
                     state.snake.size++;
@@ -156,6 +175,9 @@
             renderGame();
         }
 
+        /**
+         * End game state.
+         */
         function endGame(isWon) {
             if (isWon) {
                 alert('You won!');
@@ -166,13 +188,15 @@
             state.game.interval = undefined;
         }
 
+        /**
+         * Initialize new game state.
+         */
         function newGame() {
             state.game.points = 0;
             state.snake.direction = config.initDirection;
             state.snake.size = config.initSnakeSize;
             state.snake.body = initSnakeBody();
             state.food = generateFood();
-            console.log(state.food)
             renderGame();
             clearInterval(state.game.interval);
             switch(document.getElementById('difficulty').value) {
@@ -214,28 +238,27 @@
             }
         }
 
-        document.onkeydown = function(e) {
-            switch(e.keyCode) {
-                case 37:
-                    e.preventDefault();
+        /**
+         * Change game state according to user input.
+         */
+        function handleInput(input) {
+            switch(input) {
+                case directionsEnum.left:
                     if (state.snake.body[0] - 1 !== state.snake.body[1]) {
                         state.snake.direction = directionsEnum.left;
                     }
                     break;
-                case 38:
-                    e.preventDefault();
+                case directionsEnum.up:
                     if (state.snake.body[0] - config.numRows !== state.snake.body[1]) {
                         state.snake.direction = directionsEnum.up;
                     }
                     break;
-                case 39:
-                    e.preventDefault();
+                case directionsEnum.right:
                     if (state.snake.body[0] + 1 !== state.snake.body[1]) {
                         state.snake.direction = directionsEnum.right;
                     }
                     break;
-                case 40:
-                    e.preventDefault();
+                case directionsEnum.down:
                     if (state.snake.body[0] + config.numRows !== state.snake.body[1]) {
                         state.snake.direction = directionsEnum.down;
                     }
@@ -245,6 +268,54 @@
             }
         }
 
+        /**
+         * Initialize game controls.
+         */
+        function initControls() {
+            // keyboard controls
+            document.onkeydown = function(e) {
+                switch(e.keyCode) {
+                    case 37:
+                        e.preventDefault();
+                        handleInput(directionsEnum.left);
+                        break;
+                    case 38:
+                        e.preventDefault();
+                        handleInput(directionsEnum.up);
+                        break;
+                    case 39:
+                        e.preventDefault();
+                        handleInput(directionsEnum.right);
+                        break;
+                    case 40:
+                        e.preventDefault();
+                        handleInput(directionsEnum.down);
+                        break;
+                    default:
+                        // do nothing
+                }
+            }
+            
+            // touch controls
+            var manager = new Hammer.Manager(document.getElementById('board'));
+            var Swipe = new Hammer.Swipe();
+            manager.add(Swipe);
+
+            manager.on('swipeleft', function(e) {
+                handleInput(directionsEnum.left);
+            });
+            manager.on('swipeup', function(e) {
+                handleInput(directionsEnum.up);
+            });
+            manager.on('swiperight', function(e) {
+                handleInput(directionsEnum.right);
+            });
+            manager.on('swipedown', function(e) {
+                handleInput(directionsEnum.down);
+            });
+        }
+
+        initControls();
         newGame();
     </script>
 </body>
